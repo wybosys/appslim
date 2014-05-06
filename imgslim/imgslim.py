@@ -72,7 +72,8 @@ def ios_wild_strings2regex(strs):
     import re
     rx = re.compile(r"(%[0-9]*[d])")
     for each in strs:
-        each = rx.sub('[0-9]+', each)
+        each = "^" + rx.sub('[0-9]+', each)
+        print each
         rxs.append(re.compile(each))
     return rxs
 
@@ -81,17 +82,20 @@ def ios_img_fullmatch(fn, strs):
 
 def ios_img_namematch(fn, strs):    
     str, ext = os.path.splitext(fn)
+    if str.find("_highlight"):
+        str = str.replace("_highlight", "")
     #print str
     if str in strs:
         return True
-    pstr = str[:str.find("@")]
-    #print pstr
-    if pstr in strs:
-        return True
-    pstr = pstr + ext
-    #print pstr
-    if pstr in strs:
-        return True
+    if str.find("@") != -1:
+        pstr = str[:str.find("@")]
+        #print pstr
+        if pstr in strs:
+            return True
+        pstr = pstr + ext
+        #print pstr
+        if pstr in strs:
+            return True
     return False
 
 def ios_img_used(res, strs, result=None):    
@@ -134,11 +138,27 @@ def ios_img_unused(res, useds, result=None):
                 result[each] = (current)
     return result
 
-def ios_img_printstat(useds, unuseds):
+imgsexts = [".png", ".gif", ".jpg", ".bmp"]
+
+if __name__ == "__main__":
+    print "Imgslim for iOS app"
+    print "select version:"
+    ver = ios_version_selection()
+    app = ios_app_selection(ver)
+    strs = ios_app_strings(app[1] + app[0])
+    import sys
+    if len(sys.argv) > 1:
+        resdir = sys.argv[2]
+    else:
+        resdir = os.getcwd()
+    useds = ios_img_used(resdir, strs[0])
+    ios_img_used_wild(resdir, ios_wild_strings2regex(strs[1]), useds)
+    unuseds = ios_img_unused(resdir, useds)
     print """command:
-    \t0, list used
-    \t1, list unused
-    \t9, remove unused"""
+    \t0, list used resources
+    \t1, list unused resources
+    \t2, dereference all unused images
+    \t9, remove all unused images"""
     cmd = int(raw_input("command: "))
     if cmd == 0:
         bytesize = 0
@@ -156,29 +176,30 @@ def ios_img_printstat(useds, unuseds):
             st = os.stat(path)
             bytesize += st.st_size
         print "byte size : {bs} KB".format(bs=bytesize/1024)
+    if cmd == 2:
+        prjpath = "/".join(resdir.split("/")[:-2]) + "/" + app[0] + ".xcodeproj/project.pbxproj"
+        prjpath2 = prjpath + "~"
+        f2 = open(prjpath2, 'w')
+        with open(prjpath) as f:
+            for line in f:
+                found = False
+                for k in unuseds:
+                    str, ext = os.path.splitext(k)
+                    if ext in imgsexts:
+                        if line.find(k) != -1:
+                            found = True
+                            break
+                if not found:
+                    f2.write(line)
+        f2.close()
+        import shutil
+        shutil.move(prjpath2, prjpath)
     if cmd == 9:
         ok = raw_input("confirm to remove all unused images? [y/n]")
         if ok == "y":
-            imgsexts = [".png", ".gif", ".jpg", ".bmp"]
             for k in unuseds:
                 str, ext = os.path.splitext(k)
                 if ext in imgsexts:
                     path = unuseds[k]
                     print "removing " + path
                     os.unlink(path)
-
-if __name__ == "__main__":
-    print "Imgslim for iOS app"
-    print "select version:"
-    ver = ios_version_selection()
-    app = ios_app_selection(ver)
-    strs = ios_app_strings(app[1] + app[0])
-    import sys
-    if len(sys.argv) > 1:
-        resdir = sys.argv[2]
-    else:
-        resdir = os.getcwd()
-    useds = ios_img_used(resdir, strs[0])
-    ios_img_used_wild(resdir, ios_wild_strings2regex(strs[1]), useds)
-    unuseds = ios_img_unused(resdir, useds)
-    ios_img_printstat(useds, unuseds)
