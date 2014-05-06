@@ -135,14 +135,37 @@ def ios_img_unused(res, useds, result=None):
     return result
 
 def ios_img_printstat(useds, unuseds):
-    print "command: \n\t0, list used\n\t1, list unused"
+    print """command:
+    \t0, list used
+    \t1, list unused
+    \t9, remove unused"""
     cmd = int(raw_input("command: "))
     if cmd == 0:
+        bytesize = 0
         for k in useds:
             print k
+            path = useds[k]
+            st = os.stat(path)
+            bytesize += st.st_size
+        print "byte size : {bs} KB".format(bs=bytesize/1024)
     if cmd == 1:
+        bytesize = 0
         for k in unuseds:
             print k
+            path = unuseds[k]
+            st = os.stat(path)
+            bytesize += st.st_size
+        print "byte size : {bs} KB".format(bs=bytesize/1024)
+    if cmd == 9:
+        ok = raw_input("confirm to remove all unused images? [y/n]")
+        if ok == "y":
+            imgsexts = [".png", ".gif", ".jpg", ".bmp"]
+            for k in unuseds:
+                str, ext = os.path.splitext(k)
+                if ext in imgsexts:
+                    path = unuseds[k]
+                    print "removing " + path
+                    os.unlink(path)
 
 if __name__ == "__main__":
     print "Imgslim for iOS app"
